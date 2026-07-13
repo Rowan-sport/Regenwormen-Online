@@ -1,0 +1,43 @@
+{
+  "game": {
+    "num_dice": 8,
+    "tile_min": 21,
+    "tile_max": 36,
+    "max_players": 4,
+    "turn_timeout_seconds": 120
+  },
+  "accessibility": {
+    "dwell_time_ms": 10000,
+    "dwell_radius_px": 80,
+    "button_min_size_px": 140,
+    "font_scale": 1.4,
+    "high_contrast_mode": false,
+    "sound_enabled": true,
+    "animation_speed": "normal"
+  },
+  "tobii": {
+    "enabled": true,
+    "smoothing_factor": 0.3,
+    "fixation_radius_px": 60,
+    "gaze_cursor_visible": true,
+    "gaze_cursor_color": "#FF6B35",
+    "fallback_to_mouse": true
+  },
+  "multiplayer": {
+    "enabled": true,
+    "max_room_players": 4,
+    "poll_interval_ms": 800
+  },
+  "theme": {
+    "primary_color": "#FF6B35",
+    "secondary_color": "#4ECDC4",
+    "accent_color": "#FFE66D",
+    "background_color": "#1A1A2E",
+    "success_color": "#6BCF7F",
+    "danger_color": "#FF4757"
+  },
+  "players": {
+    "default_names": ["K.", "Speler 2", "Speler 3", "Speler 4"],
+    "default_count": 2
+  }
+}

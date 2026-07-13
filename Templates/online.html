@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Regenwormen — Online Spelen 🌐{% endblock %}
+
+{% block content %}
+<nav class="nav-bar">
+  <span class="nav-logo">🪱 Regenwormen</span>
+  <a href="/" class="btn btn-ghost gaze-btn" data-gaze="true" style="min-width:160px;min-height:64px;font-size:1.2rem;padding:14px 24px">
+    <span class="dwell-bar"></span>🏠 Terug
+  </a>
+</nav>
+
+<div style="max-width:520px;margin:40px auto;padding:0 20px">
+  <h1 class="display text-center mb-4" style="font-size:2.2rem;color:var(--secondary)">🌐 Online Spelen</h1>
+  <p class="text-center text-dim mb-4">Maak een kamer aan of join er een met een code.</p>
+
+  <!-- Name input -->
+  <div class="card mb-4">
+    <label class="text-sm text-dim mb-2" style="display:block">Jouw naam:</label>
+    <input type="text" id="player-name-input" value="K." maxlength="20"
+           placeholder="Jouw naam"
+           style="width:100%;background:var(--bg3);border:2px solid rgba(255,255,255,0.15);border-radius:12px;color:var(--text);font-size:1rem;padding:14px 18px;font-family:'Nunito',sans-serif;outline:none">
+  </div>
+
+  <!-- Create room -->
+  <div class="card mb-4">
+    <h2 class="display mb-3" style="color:var(--primary)">🏠 Nieuwe kamer</h2>
+    <p class="text-dim text-sm mb-3">Maak een kamer aan en deel de code met vrienden.</p>
+    <button class="btn btn-primary gaze-btn" data-gaze="true" id="create-btn" style="width:100%;font-size:1.2rem;min-height:72px">
+      <span class="dwell-bar"></span>➕ Kamer aanmaken
+    </button>
+    <div id="room-code-display" style="display:none" class="text-center mt-4">
+      <p class="text-dim text-sm">Jouw kamerkode:</p>
+      <div class="display" style="font-size:3rem;color:var(--accent);letter-spacing:0.2em" id="room-code-text"></div>
+      <p class="text-dim text-sm mt-2">Wacht tot iedereen klaar is, druk dan op Starten.</p>
+      <div id="lobby-players" class="flex gap-2 wrap justify-center mt-3"></div>
+      <button class="btn btn-accent gaze-btn mt-4" data-gaze="true" id="start-room-btn" style="width:100%;font-size:1.2rem;min-height:72px">
+        <span class="dwell-bar"></span>🎲 Spel Starten!
+      </button>
+    </div>
+  </div>
+
+  <!-- Join room -->
+  <div class="card">
+    <h2 class="display mb-3" style="color:var(--secondary)">🔑 Kamer joinen</h2>
+    <input type="text" id="join-code-input" placeholder="Kamerkode (bijv. AB12CD)" maxlength="6"
+           style="width:100%;background:var(--bg3);border:2px solid rgba(255,255,255,0.15);border-radius:12px;color:var(--text);font-size:1.4rem;padding:14px 18px;font-family:'Fredoka One',cursive;letter-spacing:0.15em;text-transform:uppercase;outline:none;margin-bottom:12px;text-align:center">
+    <button class="btn btn-secondary gaze-btn" data-gaze="true" id="join-btn" style="width:100%;font-size:1.2rem;min-height:72px">
+      <span class="dwell-bar"></span>🚪 Joinen
+    </button>
+  </div>
+</div>
+
+<script>
+let pollInterval = null;
+
+async function getName() {
+  return document.getElementById('player-name-input').value.trim() || 'Speler';
+}
+
+document.getElementById('create-btn').addEventListener('click', async () => {
+  const res = await fetch('/api/room/create', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: await getName() })
+  });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('room-code-text').textContent = data.code;
+    document.getElementById('room-code-display').style.display = 'block';
+    document.getElementById('create-btn').style.display = 'none';
+    startPollingLobby();
+  }
+});
+
+document.getElementById('join-btn').addEventListener('click', async () => {
+  const code = document.getElementById('join-code-input').value.toUpperCase().trim();
+  const res = await fetch('/api/room/join', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ code, name: await getName() })
+  });
+  const data = await res.json();
+  if (data.success) {
+    window.location.href = '/room/game';
+  } else {
+    UI.toast(data.message || 'Kan niet joinen.', 'danger');
+  }
+});
+
+document.getElementById('start-room-btn').addEventListener('click', async () => {
+  const res = await fetch('/api/room/start', { method: 'POST' });
+  const data = await res.json();
+  if (data.success) {
+    clearInterval(pollInterval);
+    window.location.href = '/room/game';
+  }
+});
+
+function startPollingLobby() {
+  pollInterval = setInterval(async () => {
+    const res = await fetch('/api/room/state');
+    if (!res.ok) return;
+    const data = await res.json();
+    const lp = document.getElementById('lobby-players');
+    lp.innerHTML = data.players.map(p =>
+      `<span style="background:var(--bg3);padding:6px 14px;border-radius:20px;font-weight:700">${p.name}</span>`
+    ).join('');
+    if (data.started) {
+      clearInterval(pollInterval);
+      window.location.href = '/room/game';
+    }
+  }, 1000);
+}
+</script>
+{% endblock %}

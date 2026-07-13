@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Regenwormen — Welkom! 🪱{% endblock %}
+
+{% block content %}
+<div class="hero-page">
+  <h1 class="hero-title">Regenwormen</h1>
+  <p class="hero-subtitle">Regenwormen — speel jij mee?</p>
+
+  <div class="setup-box">
+    <h2 class="display text-center mb-4" style="color:var(--accent)">Wie spelen er mee?</h2>
+
+    <div id="players-list">
+      <div class="player-input">
+        <div class="player-num">1</div>
+        <input type="text" placeholder="Naam speler 1" value="K." maxlength="20"
+               style="border-color:var(--primary)">
+      </div>
+      <div class="player-input">
+        <div class="player-num" style="background:var(--secondary)">2</div>
+        <input type="text" placeholder="Naam speler 2" value="Speler 2" maxlength="20">
+      </div>
+    </div>
+
+    <div class="flex gap-3 mt-4 wrap justify-center">
+      <button class="btn btn-ghost gaze-btn" id="add-player-btn" data-gaze="true"
+              style="min-width:120px">
+        <span class="dwell-bar"></span>+ Speler
+      </button>
+    </div>
+
+    <button class="btn btn-primary gaze-btn mt-4" id="start-local-btn"
+            data-gaze="true" style="width:100%; font-size:1.4rem; min-height:80px">
+      <span class="dwell-bar"></span>🎲 Spel Starten!
+    </button>
+
+    <div class="flex gap-3 mt-4 wrap justify-center">
+      <a href="/online" class="btn btn-secondary gaze-btn" data-gaze="true" style="flex:1; min-width:160px">
+        <span class="dwell-bar"></span>🌐 Online Spelen
+      </a>
+      <a href="/rules" class="btn btn-ghost gaze-btn" data-gaze="true" style="flex:1; min-width:160px">
+        <span class="dwell-bar"></span>📖 Spelregels
+      </a>
+    </div>
+
+    <p class="text-center text-dim text-sm mt-4">
+      Oogbesturing: kijk 1,5 sec op een knop om te klikken<br>
+      Modus: <span id="input-mode-label" style="color:var(--accent)">laden…</span>
+    </p>
+  </div>
+</div>
+
+<script>
+const PLAYER_COLORS = ['var(--primary)','var(--secondary)','var(--accent)','var(--success)'];
+
+document.getElementById('add-player-btn').addEventListener('click', () => {
+  const list = document.getElementById('players-list');
+  const count = list.querySelectorAll('.player-input').length;
+  if (count >= 4) { UI.toast('Maximaal 4 spelers!', 'danger'); return; }
+  const div = document.createElement('div');
+  div.className = 'player-input pop-in';
+  div.innerHTML = `
+    <div class="player-num" style="background:${PLAYER_COLORS[count]}">${count+1}</div>
+    <input type="text" placeholder="Naam speler ${count+1}" value="Speler ${count+1}" maxlength="20">
+  `;
+  list.appendChild(div);
+});
+
+document.getElementById('start-local-btn').addEventListener('click', async () => {
+  const inputs = document.querySelectorAll('#players-list input');
+  const names = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
+  if (!names.length) { UI.toast('Voer minstens 1 naam in!', 'danger'); return; }
+
+  const btn = document.getElementById('start-local-btn');
+  btn.disabled = true;
+  btn.textContent = 'Laden…';
+
+  const res = await fetch('/start', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ players: names })
+  });
+  if (res.ok) {
+    window.location.href = '/game';
+  } else {
+    UI.toast('Er ging iets mis. Probeer opnieuw.', 'danger');
+    btn.disabled = false;
+    btn.innerHTML = '<span class="dwell-bar"></span>🎲 Spel Starten!';
+  }
+});
+
+// Show input mode
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const mode = TobiiController.getMode();
+    const label = { tobii:'Tobii Dynavox 👁️', webgazer:'Webcam oogbesturing 📷', mouse:'Muis (fallback) 🖱️' };
+    document.getElementById('input-mode-label').textContent = label[mode] || mode;
+  }, 800);
+});
+</script>
+{% endblock %}

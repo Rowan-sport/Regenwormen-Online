@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}Regenwormen — Online Kamer 🌐{% endblock %}
+
+{% block content %}
+<nav class="nav-bar">
+  <span class="nav-logo">🪱 Regenwormen</span>
+  <div class="flex gap-2 items-center">
+    <span class="text-dim text-sm" id="room-code-nav"></span>
+    <a href="/" class="btn btn-ghost gaze-btn" data-gaze="true" style="min-width:70px;min-height:44px;font-size:0.85rem">
+      <span class="dwell-bar"></span>🏠 Stop
+    </a>
+  </div>
+</nav>
+
+<div style="padding:16px 20px; max-width:1200px; margin:0 auto">
+  <div class="card mb-4 text-center" id="waiting-card">
+    <div style="font-size:2.5rem; margin-bottom:8px">⏳</div>
+    <h2 class="display" style="color:var(--accent)">Wachten op spelers…</h2>
+    <p class="text-dim mt-2">De host start het spel zo meteen.</p>
+  </div>
+
+  <div id="game-wrapper" style="display:none">
+    <!-- Players row -->
+    <div class="flex gap-4 wrap mb-4" id="players-row"></div>
+    <!-- Message -->
+    <div class="message-bar mb-4"><span id="message-text">Laden…</span></div>
+    <!-- Score + kept -->
+    <div class="flex gap-4 items-center wrap mb-4">
+      <div class="card flex items-center gap-3" style="flex:1;min-width:180px">
+        <span class="text-dim">Score:</span>
+        <span class="score-badge" id="score-display">0</span>
+      </div>
+      <div class="card flex items-center gap-3 wrap" style="flex:2;min-width:200px">
+        <span class="text-dim">Gehouden:</span>
+        <div class="flex gap-2 wrap" id="kept-values"></div>
+      </div>
+    </div>
+    <!-- Dice -->
+    <div class="card mb-4">
+      <h3 class="display mb-3" style="color:var(--accent);font-size:1.2rem">🎲 Dobbelstenen</h3>
+      <div class="flex gap-3 wrap mb-4" id="dice-area"></div>
+      <div id="value-selector" style="display:none">
+        <p class="text-dim text-sm mb-2">Kies een waarde:</p>
+        <div class="flex gap-3 wrap" id="value-buttons"></div>
+      </div>
+    </div>
+    <!-- Actions: only shown if it's your turn -->
+    <div class="flex gap-4 wrap mb-4" id="action-area"></div>
+    <!-- Not-your-turn indicator -->
+    <div id="waiting-turn" style="display:none" class="card text-center mb-4">
+      <p style="font-size:1.2rem">⏳ Wacht op <strong id="active-player-name"></strong>…</p>
+    </div>
+    <!-- Center tiles -->
+    <div class="card mb-4">
+      <h3 class="display mb-3" style="color:var(--secondary)">🪱 Stenen in het midden</h3>
+      <div class="grid-auto" id="center-tiles"></div>
+    </div>
+    <!-- Log -->
+    <div class="card">
+      <h3 class="display mb-2 text-dim" style="font-size:1rem">📋 Spelverloop</h3>
+      <div id="game-log" style="max-height:130px;overflow-y:auto;font-size:0.8rem;color:var(--text-dim)"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Turn announcement overlay -->
+<div id="turn-announcement" style="display:none; position:fixed; inset:0; background:rgba(10,10,30,0.92); z-index:7000; align-items:center; justify-content:center; flex-direction:column; text-align:center; backdrop-filter:blur(6px);">
+  <div style="animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;">
+    <div id="turn-emoji" style="font-size:5rem; margin-bottom:12px;">👁️</div>
+    <h2 class="display" style="font-size:2.8rem; color:var(--accent); margin-bottom:8px;" id="turn-name"></h2>
+    <p style="font-size:1.3rem; color:var(--text-dim); margin-bottom:32px;">Het is jouw beurt!</p>
+    <button class="btn btn-primary gaze-btn" data-gaze="true" id="turn-start-btn"
+            style="font-size:1.4rem; min-height:90px; min-width:260px;">
+      <span class="dwell-bar"></span>🎲 Ik ben er klaar voor!
+    </button>
+  </div>
+</div>
+
+<!-- Win modal -->
+<div id="win-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div style="font-size:3rem;margin-bottom:12px">🎉🪱🏆</div>
+    <h2 class="display text-accent text-xl mb-4" id="win-title"></h2>
+    <p class="mb-4" id="win-body"></p>
+    <a href="/" class="btn btn-primary gaze-btn" data-gaze="true" style="font-size:1.2rem">
+      <span class="dwell-bar"></span>🏠 Terug naar menu
+    </a>
+  </div>
+</div>
+
+<script>
+let myName   = null;
+let lastVer  = -1;
+let pollMs   = 800;
+let gameState = null;
+
+async function init() {
+  const res = await fetch('/api/room/state');
+  if (!res.ok) { window.location.href = '/'; return; }
+  const data = await res.json();
+  document.getElementById('room-code-nav').textContent = '🔑 ' + data.code;
+  myName = '{{ session.get("player_name", "") }}' || (data.players[0] && data.players[0].name);
+  startPolling();
+}
+
+function startPolling() {
+  setInterval(poll, pollMs);
+}
+
+async function poll() {
+  const res = await fetch('/api/room/state');
+  if (!res.ok) return;
+  const data = await res.json();
+
+  if (!data.started) return;
+
+  document.getElementById('waiting-card').style.display = 'none';
+  document.getElementById('game-wrapper').style.display = 'block';
+
+  if (data.version !== lastVer && data.game_state) {
+    const prevVer = lastVer;
+    lastVer = data.version;
+    gameState = data.game_state;
+    render(data.game_state);
+    if (prevVer !== -1) showTurnAnnouncement(data.game_state);
+  }
+}
+
+
+let lastPlayerIndex = -1;
+
+function showTurnAnnouncement(state) {
+  if (state.game_over) return;
+  const idx = state.current_player_index;
+  if (idx === lastPlayerIndex) return;
+  lastPlayerIndex = idx;
+
+  const name = state.players[idx].name;
+  const isMe = name === myName;
+  const overlay = document.getElementById('turn-announcement');
+  document.getElementById('turn-name').textContent = name + (isMe ? ' (jij!)' : '');
+  document.getElementById('turn-emoji').textContent = isMe ? '⭐' : '👁️';
+  overlay.style.display = 'flex';
+
+  const autoTimer = setTimeout(() => overlay.style.display = 'none', 4000);
+  document.getElementById('turn-start-btn').onclick = () => {
+    clearTimeout(autoTimer);
+    overlay.style.display = 'none';
+  };
+}
+
+function isMyTurn(state) {
+  return state && state.players[state.current_player_index].name === myName;
+}
+
+function render(state) {
+  if (!state) return;
+
+  // Players row
+  const pr = document.getElementById('players-row');
+  pr.innerHTML = '';
+  state.players.forEach((p, i) => {
+    const active = i === state.current_player_index;
+    const isMe = p.name === myName;
+    const div = document.createElement('div');
+    div.className = 'player-panel' + (active ? ' active' : '');
+    div.style.flex = '1'; div.style.minWidth = '160px';
+    div.innerHTML = `
+      <div class="flex items-center gap-2 mb-1">
+        ${active ? '<span>👁️</span>' : ''}${isMe ? '<span>⭐</span>' : ''}
+        <span class="display" style="font-size:1rem">${p.name}${isMe ? ' (jij)' : ''}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="worm-icon">🪱</span><span class="font-bold">${p.worm_count}</span>
+      </div>
+      ${p.top_tile ? `<div class="text-sm mt-1 text-dim">Top: <strong style="color:var(--gold)">${p.top_tile}</strong></div>` : ''}
+    `;
+    pr.appendChild(div);
+  });
+
+  document.getElementById('message-text').textContent = state.turn.message;
+  document.getElementById('score-display').textContent = state.turn.score;
+
+  // Kept values
+  const kv = document.getElementById('kept-values');
+  kv.innerHTML = '';
+  (state.turn.kept_values || []).forEach(v => {
+    const s = document.createElement('span');
+    s.className = 'die pop-in';
+    s.style.cssText = 'width:50px;height:50px;font-size:1.1rem;' + (v==='🪱'?'background:var(--worm);color:white;':'');
+    s.textContent = v;
+    kv.appendChild(s);
+  });
+
+  // Dice
+  const da = document.getElementById('dice-area');
+  da.innerHTML = '';
+  state.turn.dice.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'die pop-in' + (d.held?' held':'') + (d.value===5?' worm':'');
+    div.textContent = d.label;
+    da.appendChild(div);
+  });
+
+  // Value selector
+  const vs = document.getElementById('value-selector');
+  const vb = document.getElementById('value-buttons');
+  const avail = state.turn.available_values || [];
+  if (state.turn.phase === 'select' && avail.length && isMyTurn(state)) {
+    vs.style.display = 'block';
+    vb.innerHTML = '';
+    avail.forEach(v => {
+      const cnt = state.turn.dice.filter(d => !d.held && d.value===v).length;
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-secondary gaze-btn';
+      btn.setAttribute('data-gaze', 'true');
+      btn.innerHTML = `<span class="dwell-bar"></span>${UI.diceLabel(v)} ×${cnt}`;
+      btn.addEventListener('click', () => doSelect(v));
+      vb.appendChild(btn);
+    });
+  } else {
+    vs.style.display = 'none';
+  }
+
+  // Actions
+  const aa = document.getElementById('action-area');
+  const wt = document.getElementById('waiting-turn');
+  aa.innerHTML = '';
+  if (isMyTurn(state) && !state.game_over) {
+    wt.style.display = 'none';
+    if (!state.turn.bust) {
+      const rb = document.createElement('button');
+      rb.className = 'btn btn-primary gaze-btn';
+      rb.setAttribute('data-gaze', 'true');
+      rb.style.cssText = 'flex:1;min-height:80px;font-size:1.3rem';
+      rb.disabled = state.turn.phase !== 'roll';
+      rb.innerHTML = `<span class="dwell-bar"></span>🎲 Gooien! (${state.turn.free_dice_count})`;
+      rb.addEventListener('click', doRoll);
+      aa.appendChild(rb);
+    } else {
+      const bb = document.createElement('button');
+      bb.className = 'btn btn-danger gaze-btn';
+      bb.setAttribute('data-gaze', 'true');
+      bb.style.cssText = 'flex:1;min-height:80px;font-size:1.3rem';
+      bb.innerHTML = '<span class="dwell-bar"></span>💥 Doorgaan (steen verloren)';
+      bb.addEventListener('click', doEndTurn);
+      aa.appendChild(bb);
+    }
+    if (state.turn.can_end_turn) {
+      const eb = document.createElement('button');
+      eb.className = 'btn btn-accent gaze-btn';
+      eb.setAttribute('data-gaze', 'true');
+      eb.style.cssText = 'flex:1;min-height:80px;font-size:1.3rem';
+      eb.innerHTML = '<span class="dwell-bar"></span>✅ Beurt Klaar!';
+      eb.addEventListener('click', doEndTurn);
+      aa.appendChild(eb);
+    }
+  } else if (!state.game_over) {
+    wt.style.display = 'block';
+    document.getElementById('active-player-name').textContent = state.players[state.current_player_index].name;
+  }
+
+  // Center tiles
+  const ct = document.getElementById('center-tiles');
+  ct.innerHTML = '';
+  state.center_tiles.forEach(t => {
+    const div = document.createElement('div');
+    const w = UI.tileWorms(t);
+    div.className = 'tile pop-in';
+    div.innerHTML = `<span>${t}</span><span class="worms">${UI.wormDots(w)}</span>`;
+    ct.appendChild(div);
+  });
+
+  // Log
+  const logEl = document.getElementById('game-log');
+  logEl.innerHTML = (state.log || []).slice().reverse().map(l=>`<div>${l}</div>`).join('');
+
+  if (state.game_over) showWin(state);
+}
+
+async function doRoll() {
+  const res = await fetch('/api/room/roll', { method:'POST' });
+  const data = await res.json();
+  if (data.state) render(data.state);
+}
+async function doSelect(v) {
+  const res = await fetch('/api/room/select', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ value: v })
+  });
+  const data = await res.json();
+  if (data.state) render(data.state);
+}
+async function doEndTurn() {
+  const res = await fetch('/api/room/end_turn', { method:'POST' });
+  const data = await res.json();
+  if (data.state) render(data.state);
+  if (data.claimed_tile) UI.toast(`🏆 Steen ${data.claimed_tile} gepakt!`, 'success');
+}
+
+function showWin(state) {
+  document.getElementById('win-modal').style.display = 'flex';
+  document.getElementById('win-title').textContent = `${state.winner} wint! 🎉`;
+  const ranked = [...state.players].sort((a,b)=>b.worm_count-a.worm_count);
+  document.getElementById('win-body').innerHTML = ranked.map((p,i)=>
+    `<div>${['🥇','🥈','🥉','4️⃣'][i]} ${p.name}: ${p.worm_count} 🪱</div>`).join('');
+  UI.confetti(50);
+}
+
+init();
+</script>
+{% endblock %}
