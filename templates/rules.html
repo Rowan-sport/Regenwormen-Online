@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Regenwormen — Spelregels 📖{% endblock %}
+
+{% block content %}
+<nav class="nav-bar">
+  <span class="nav-logo">🪱 Regenwormen</span>
+  <a href="/" class="btn btn-ghost gaze-btn" data-gaze="true" style="min-width:160px;min-height:64px;font-size:1.2rem;padding:14px 24px">
+    <span class="dwell-bar"></span>🏠 Terug
+  </a>
+</nav>
+
+<div style="max-width:800px; margin:0 auto; padding:24px 20px;">
+  <h1 class="display text-center mb-4" style="font-size:2.5rem; color:var(--primary)">
+    Hoe speel je Regenwormen? 🪱
+  </h1>
+
+  <div class="card mb-4">
+    <h2 class="display mb-3" style="color:var(--accent)">🎯 Doel van het spel</h2>
+    <p>Verzamel zoveel mogelijk <strong>wormen 🪱</strong> door stenen te pakken. De speler met de meeste wormen aan het einde wint!</p>
+  </div>
+
+  <div class="card mb-4">
+    <h2 class="display mb-3" style="color:var(--secondary)">🎲 Wat zit er in het spel?</h2>
+    <div class="flex gap-4 wrap">
+      <div style="flex:1;min-width:180px">
+        <strong>8 dobbelstenen</strong> met zijden:
+        <div class="flex gap-2 wrap mt-2">
+          {% for v in [1,2,3,4,'🪱'] %}
+          <div class="die" style="width:56px;height:56px;font-size:1.3rem;{{' background:var(--worm);color:white;' if v=='🪱' else ''}}">{{v}}</div>
+          {% endfor %}
+        </div>
+        <p class="text-dim text-sm mt-2">De 🪱 worm is <strong>5 punten</strong> waard!</p>
+      </div>
+      <div style="flex:1;min-width:180px">
+        <strong>16 stenen</strong> (nummers 21–36):
+        <div class="grid-auto mt-2" style="grid-template-columns: repeat(auto-fill, minmax(56px,1fr))">
+          {% for t, w in [(21,1),(25,2),(29,3),(33,4)] %}
+          <div class="tile" style="width:60px;height:60px">
+            <span>{{t}}</span>
+            <span class="worms">{{ '🪱' * w }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="text-dim text-sm mt-2">Hogere stenen = meer wormen!</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <h2 class="display mb-3" style="color:var(--primary)">📋 Je beurt — stap voor stap</h2>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="flex gap-3 items-center">
+        <div class="player-num" style="flex-shrink:0;width:44px;height:44px;font-size:1.3rem">1</div>
+        <div><strong>Gooi alle 8 dobbelstenen 🎲</strong><br><span class="text-dim">Kijk naar "Gooien!" om te gooien.</span></div>
+      </div>
+      <div class="flex gap-3 items-center">
+        <div class="player-num" style="flex-shrink:0;width:44px;height:44px;font-size:1.3rem;background:var(--secondary)">2</div>
+        <div><strong>Kies een waarde om te houden</strong><br><span class="text-dim">Je moet ALLE dobbelstenen van die waarde pakken. Je mag dezelfde waarde maar één keer per beurt kiezen.</span></div>
+      </div>
+      <div class="flex gap-3 items-center">
+        <div class="player-num" style="flex-shrink:0;width:44px;height:44px;font-size:1.3rem;background:var(--accent);color:var(--bg)">3</div>
+        <div><strong>Gooi de rest opnieuw — of stop</strong><br><span class="text-dim">Je kunt blijven gooien totdat alle dobbelstenen gehouden zijn, of op "Beurt Klaar!" drukken.</span></div>
+      </div>
+      <div class="flex gap-3 items-center">
+        <div class="player-num" style="flex-shrink:0;width:44px;height:44px;font-size:1.3rem;background:var(--success)">4</div>
+        <div><strong>Pak een steen 🏆</strong><br><span class="text-dim">Je score = som van alle gehouden dobbelstenen. Pak de hoogste steen die ≤ jouw score is.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <h2 class="display mb-3" style="color:var(--danger)">⚠️ Belangrijke regels</h2>
+    <ul style="list-style:none;display:flex;flex-direction:column;gap:10px">
+      <li>🪱 <strong>Je moet altijd minstens één worm houden</strong> om een beurt te beëindigen.</li>
+      <li>❌ <strong>Kun je geen nieuwe waarde kiezen?</strong> Dan "bust" je — je verliest je bovenste steen!</li>
+      <li>🥷 <strong>Stelen!</strong> Als jouw score precies gelijk is aan de bovenste steen van een tegenstander, steel je die!</li>
+      <li>🔚 <strong>Einde:</strong> Als alle stenen uit het midden weg zijn, tellen we wormen. Meeste wormen wint!</li>
+    </ul>
+  </div>
+
+  <div class="card mb-4">
+    <h2 class="display mb-3" style="color:var(--secondary)">👁️ Hoe bedien je het spel?</h2>
+    <div class="flex gap-4 wrap">
+      <div style="flex:1;min-width:180px">
+        <strong>Met ogen (Tobii) 👁️</strong><br>
+        <span class="text-dim">Kijk op een knop en hou je blik vast (1,5 seconden). De balk vult zich — dan wordt geklikt!</span>
+      </div>
+      <div style="flex:1;min-width:180px">
+        <strong>Met hoofd 🤕</strong><br>
+        <span class="text-dim">Beweeg je hoofd naar de knop. De Tobii herkent dit ook als gaze-input.</span>
+      </div>
+      <div style="flex:1;min-width:180px">
+        <strong>Met muis 🖱️</strong><br>
+        <span class="text-dim">Beweeg de muis en klik. Dit is de fallback als er geen eye-tracker is.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center mt-4">
+    <a href="/game" class="btn btn-primary gaze-btn" data-gaze="true" style="font-size:1.5rem; min-height:100px; min-width:300px">
+      <span class="dwell-bar"></span>🎲 Terug naar het spel!
+    </a>
+  </div>
+</div>
+{% endblock %}
